@@ -1,0 +1,173 @@
+---
+title: "Ventas de Apple entre 2008 y 2017"
+author: "Marta Ruedas Burgos"
+date: "11/16/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+# Descripción de la tarea
+
+Elección del modelo ETS y el modelo ARIMA que mejor predice las ventas. Habiendo dejado fuera de la estimación los trimestres del 2017.
+
+Una vez seleccionado el modelo se estimara el modelo con todos los datos y se harán las predicciones del año 2017 y 2018.
+
+Para comprender mejor lo que esta ocurriendo con las ventas de Apple, el siguiente articulo apareció en el “Wall Street Journal” en el fin de semana del 23/24 de Septiembre de 2017 y los ingresos por segmentos.
+
+
+# Objetivo
+
+El objetivo es predecir las ventas de Apple. Los datos han sido obtenidos desde el 2T de 2008 hasta el 3T del 2017. La base de datos a importar es la siguiente: IngresosApple.csv.
+
+# Librerías
+
+Importación de librerías necesarias para el caso práctico.
+
+```{r message=FALSE, r,warning=FALSE}
+
+library(readr) # Read
+library(skimr) # Pretty Summarizes
+library(forecast)
+library(xts)
+library(ggplot2)
+library(ggfortify) #Plot Monthplot
+
+```
+
+# Read Data
+```{r echo=FALSE, warning=FALSE}
+# Data CSV file
+rawData <- read.csv2("./data/IngresosApple.csv")
+rawVentas<-rawData$Ingresos
+rawDate<-seq(as.Date("2008/04/01"), as.Date("2017/07/01"), by = "quarter")
+
+rawData
+```
+
+# **Análisis Exploratorio**
+
+
+# Nombre De Las Variables
+
+Primero estudiamos las variables:
+
+- **TRIMESTRE**      
+
+- ***INGRESOS***   
+
+- ***VENTAS***  
+
+# Summarize Data
+
+Segundo exploramos los datos y los analizamos.
+```{r echo=FALSE, warning=FALSE}
+skim(rawData)
+```
+
+# **ETS**
+
+(ETS) es un algoritmo estadístico local de uso común para el pronóstico de series de tiempo. El algoritmo ETS de Amazon Forecast llama a la función ets en el paquete "pronóstico" de la Red de archivos R completa (CRAN).
+
+```{r echo=FALSE, warning=FALSE}
+#Creo un objeto XTS 
+xVentas=xts(rawVentas,order.by=rawDate)
+
+```
+
+# Gráfico Ventas Trimestrales de Apple
+
+```{r echo=FALSE, warning=FALSE}
+##Plot Serie
+autoplot(xVentas)+ggtitle("Ventas Apple")+xlab("Trimestres")+ylab("Volumen Ventas")
+```
+```{r echo=FALSE, warning=FALSE}
+#Transform to ts data
+
+tsVentas=ts(coredata(xVentas), start = c(2008, 1), frequency = 4)
+#Seasonal Plot
+ggfreqplot(tsVentas,freq=4,nrow=1,facet.labeller=c("1T","2T","3T","4T"))+ggtitle("Primas Trimestrales")
+```
+
+# Series temporales: Componentes
+```{r echo=FALSE, warning=FALSE}
+plot(tsVentas)
+```
+
+# Cálculo del Modelo de ETS 
+```{r echo=FALSE, warning=FALSE}
+
+etsfit<-ets(xVentas)
+#forecast model
+fventas.ets=forecast(etsfit)
+#Results
+summary(fventas.ets)
+
+
+#Plot
+plot(fventas.ets)
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+#Select number of observation to compare forecast
+cOmit=4
+etsfit<-ets(window(tsVentas,end=2016+3/4))
+fventas.ets=forecast(etsfit,h=cOmit)
+#accuracy(etsfit,window(tsVentas,start=2017))
+forecast:::testaccuracy(fventas.ets$mean,window(tsVentas,start=2017),test = NULL, d = NULL, D = NULL)
+
+```
+
+
+# **ARIMA**
+
+ARIMA, es un algoritmo de pronóstico basado en la idea de que la información en los valores pasados de la serie temporal puede usarse por sí sola para predecir los valores futuros.
+
+# Ventas Trimestrales Apple Modelo ARIMA
+
+```{r echo=FALSE, warning=FALSE}
+#Log transformation?
+zlVentas=log(xVentas)
+df_newl <- data.frame(value = as.vector(zlVentas),
+                     time = time(zlVentas))
+ggplot(df_newl)+geom_point(aes(x=time,y=value))+geom_line(aes(x=time,y=value))+ylab("Ventas")+ggtitle("Ventas Trimestrales Apple")+xlab("Trimestres")
+
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+#Difference
+ggtsdisplay(zlVentas)
+```
+
+# Ventas Trimestrales LOG Apple
+
+```{r echo=FALSE, warning=FALSE}
+ggtsdisplay(diff(zlVentas))
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+ggtsdisplay(diff(zlVentas,4))
+```
+
+# Modelo ARIMA 
+```{r echo=FALSE, warning=FALSE}
+#ARIMA MODEL
+fit1=auto.arima(xVentas,lambda=0)
+summary(fit1)
+```
+
+# **Conclusión**
+
+La conclusión después del análisis ha sido que las ventas suben en el cuarto semestre, es decir, la gente tiende a comprar más en la época de invierno. Esta tendencia se repite cada año al ser este periodo de tiempo normalmente cuando hay nuevos lanzamientos en todos los dispositivos Apple. 
+
+Comparando los dos modelos, ETS y ARIMA, estudio de los modelos y los gráficos, he llegado a la conclusión que el mejor modelo es el ETS, porque se plantea con menos error.
+
+
+# GitHub
+
+Repositorio CP04: https://github.com/martaruedas/CP04_Apple.git
+
